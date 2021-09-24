@@ -12,7 +12,7 @@ master <- tibble(id = uuid::UUIDgenerate(use.time = TRUE) , #implementation for 
                  transformation = c("filter", "subset","filter", "subset", "select", "group_by", "filter", "subset", "reverse", "reverse", "sum"), 
                  output = c("f","b","g","h","i","j","g", "c", "a", "a", "z"), 
                  created_by = sample(name, 11, replace = TRUE),
-                 script_path = "simple_lineage.R",
+                 script_path = "app/dummy.R",
                  last_modified = Sys.time())
 
 

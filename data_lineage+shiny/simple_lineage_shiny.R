@@ -8,8 +8,9 @@ ui <- fluidPage(
     fluidRow(
       column(10, grVizOutput("dg")),
       column(2, verbatimTextOutput("print")),
-      column(2, textOutput("url"))
-    )
+      column(2, uiOutput("url"))
+    ),
+    uiOutput("script")
   )
 )
 
@@ -41,8 +42,8 @@ server <- function(input, output, session) {
     nodeval <- input$dg_click$nodeValues[[1]]
     path <- output_nodes_attr[output_nodes_attr[,3] == nodeval,6]
     
+    return(path)
     # return(paste("File path: ", url(path)))
-    url(path)
   })
   
   output$print <- renderText({
@@ -51,9 +52,17 @@ server <- function(input, output, session) {
            time_txt(), "\n")
   })
   
-  output$url <- renderText({
+  output$url <- renderUI({
     req(input$dg_click)
-    path_txt()
+    url <- a("Script path", href = path_txt())
+    includeScript(path_txt())
+    tagList("Click to script: ", url)
+  })
+  
+  output$script <- renderUI({
+    req(input$dg_click)
+    includeScript(path_txt())
+    readLines(path_txt())
   })
   
   # observeEvent(output$print$click)
