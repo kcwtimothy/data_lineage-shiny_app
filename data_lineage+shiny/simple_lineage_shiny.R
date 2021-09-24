@@ -1,12 +1,14 @@
 library(DiagrammeR)
 library(shiny)
+source("simple_lineage.R", local = TRUE)
 
 
 ui <- fluidPage(
   fluidPage(
     fluidRow(
       column(10, grVizOutput("dg")),
-      column(2, verbatimTextOutput("print"))
+      column(2, verbatimTextOutput("print")),
+      column(2, textOutput("url"))
     )
   )
 )
@@ -20,7 +22,7 @@ server <- function(input, output, session) {
     nodeval <- input$dg_click$nodeValues[[1]]
     user <- output_nodes_attr[output_nodes_attr[,3] == nodeval,4]
     
-    return(paste("Created by: ", user))
+    return(paste(nodeval, "Created by: ", user))
            
   })
   
@@ -39,15 +41,22 @@ server <- function(input, output, session) {
     nodeval <- input$dg_click$nodeValues[[1]]
     path <- output_nodes_attr[output_nodes_attr[,3] == nodeval,6]
     
-    return(paste("File path: ", path))
+    # return(paste("File path: ", url(path)))
+    url(path)
   })
   
   output$print <- renderText({
     req(user_txt())
     paste0(user_txt(), "\n",
-           time_txt(), "\n",
-           path_txt(), "\n")
+           time_txt(), "\n")
   })
+  
+  output$url <- renderText({
+    req(input$dg_click)
+    path_txt()
+  })
+  
+  # observeEvent(output$print$click)
   
 }
 

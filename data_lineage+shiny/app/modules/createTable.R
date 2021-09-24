@@ -83,7 +83,7 @@ createTable <- function(input, output, session, pool, goHome) {
   
   observeEvent(input$create_master, {
     df <- data.frame(id = character(),
-                     table_name = character(),
+                     input = character(),
                      transformation = character(),
                      output = character(),
                      created_by = character(),

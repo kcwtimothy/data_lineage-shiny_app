@@ -7,8 +7,10 @@ createEntryUI <- function(id, tables) {
         solidHeader = TRUE, width = 12,
         style = "overflow-y:scroll; max-height: 300px; position:relative; align: centre;overflow-x:scroll; max-width: 300;",
         tableOutput(ns("current"))),
-    uiOutput(ns("fields")),
-    actionButton(ns("create"), "Create entry", class = "pull-right btn-info")
+    box(width = 12,
+       style = "overflow-y:scroll; max-height: 800px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
+       uiOutput(ns("fields")),
+       actionButton(ns("create"), "Create entry", class = "pull-right btn-info"))
   )
 }
 
@@ -55,7 +57,7 @@ createEntry <- function(input, output, session, pool, reqTable, goHome) {
     entryValues <- data.frame(stringsAsFactors = FALSE,
       lapply(fields(), type.convert, as.is = FALSE)
     )
-
+    
     for (name in names(entryValues)) {
       id <- paste0("field", name)
 
@@ -67,8 +69,12 @@ createEntry <- function(input, output, session, pool, reqTable, goHome) {
         ))
         return()
       }
-
-      entryValues[name] <- input[[id]]
+      
+      if(name == "id"){
+        entryValues[name] <- uuid::UUIDgenerate(use.time = TRUE)
+      } else  {
+        entryValues[name] <- input[[id]]
+      }
     }
 
     dbAppendTable(pool, input$tableName, entryValues)

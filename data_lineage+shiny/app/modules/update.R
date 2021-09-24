@@ -110,20 +110,21 @@ update <- function(input, output, session, pool, reqTable, reqColInTable) {
       entryValues[name] <- input[[id]]
     }
     
-    col <- if (input$col %in% dbListFields(pool, input$tableName)) {
-      input$col
-    } else {
-       showModal(modalDialog(
-          title = "Invalid ID column name",
-          "The ID column must be a column of the DB table",
-          easyClose = TRUE, footer = NULL
-        ))
-        return()
-    }
+    # col <- if (input$col %in% dbListFields(pool, input$tableName)) {
+    #   input$col
+    # } else {
+    #    showModal(modalDialog(
+    #       title = "Invalid ID column name",
+    #       "The ID column must be a column of the DB table",
+    #       easyClose = TRUE, footer = NULL
+    #     ))
+    #     return()
+    # } legacy function, now only the 1st col(id) of dataframe is recognized
+    col_1 <- dbListFields(pool, input$tableName)[1]
     
     sql <- paste0("UPDATE ?table SET ", 
       paste0(names(entryValues), " = ?", names(entryValues), collapse = ", "), 
-      " WHERE ", col, " = ?idVal;")
+      " WHERE ", sym(col_1), " = ?idVal;")
     
     query <- sqlInterpolate(pool, sql, .dots = c(
       list(table = input$tableName), 

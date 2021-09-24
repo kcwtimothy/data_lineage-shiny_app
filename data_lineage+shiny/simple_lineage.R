@@ -12,7 +12,7 @@ master <- tibble(id = uuid::UUIDgenerate(use.time = TRUE) , #implementation for 
                  transformation = c("filter", "subset","filter", "subset", "select", "group_by", "filter", "subset", "reverse", "reverse", "sum"), 
                  output = c("f","b","g","h","i","j","g", "c", "a", "a", "z"), 
                  created_by = sample(name, 11, replace = TRUE),
-                 script_path = NA,
+                 script_path = "simple_lineage.R",
                  last_modified = Sys.time())
 
 
@@ -46,8 +46,9 @@ dm_graph <- function(df, input_name, output_name,
   #remove duplicates
   unique_nodes <- unique(c(edges$from, edges$to))
   #create a graph object 
-  diagram <- create_graph(all_nodes[unique_nodes,], edges)
+  diagram <- create_graph(all_nodes[unique_nodes,], edges) 
 }
+
 
 
 test <- dm_graph(master, master$table_name, master$output)
@@ -62,7 +63,7 @@ locate_nodes <- function(df, output_target){
   for (i in 1:nrow(df)){
     if(df$output[i] == output_target){
       t1 <- bind_rows(t1, df[i, ])
-    }
+    } 
   }
   t1 #t1 is the anchor table with target output
 
@@ -74,10 +75,14 @@ locate_nodes <- function(df, output_target){
       if(any(vector %in% df$output[j])){
         #check whether these input exist in other output rows and repeat itself
         new_val <- bind_rows(new_val, df[j,])
-      }
-      new_val
+      } 
     }
-    assign(paste0("t", i+1), new_val)
+    if (dim(new_val)[1] == 0){
+      t1
+      break
+    } else {
+      assign(paste0("t", i+1), new_val)
+    }
   }
   #rbind these duplicate rows hence extract only the unique ones
   final <-unique(do.call(rbind, 
@@ -85,17 +90,13 @@ locate_nodes <- function(df, output_target){
 }
 
 
-subset_node <- locate_nodes(master, "z")
-output_nodes_attr <- create_node_df(nrow(subset_node), label = subset_node$output, 
-                 value = subset_node$created_by,
-                 time = subset_node$last_modified,
-                 path = subset_node$script_path)
+subset_node <- locate_nodes(master, "f")
+output_nodes_attr <- create_node_df(nrow(master), label = master$output, 
+                 value = master$created_by,
+                 time = master$last_modified,
+                 path = master$script_path)
 test_4 <- subset_node %>%
   dm_graph(.$table_name, .$output, .$transformation)
 
 DiagrammeR::render_graph(test_4, layout = "lr")
-
-
-
-
 
