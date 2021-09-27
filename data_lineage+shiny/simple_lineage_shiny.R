@@ -10,7 +10,7 @@ ui <- fluidPage(
       column(2, verbatimTextOutput("print")),
       column(2, uiOutput("url"))
     ),
-    uiOutput("script")
+    verbatimTextOutput("script")
   )
 )
 
@@ -49,7 +49,8 @@ server <- function(input, output, session) {
   output$print <- renderText({
     req(user_txt())
     paste0(user_txt(), "\n",
-           time_txt(), "\n")
+           time_txt(), "\n",
+           path_txt(), "\n")
   })
   
   output$url <- renderUI({
@@ -59,9 +60,10 @@ server <- function(input, output, session) {
     tagList("Click to script: ", url)
   })
   
-  output$script <- renderUI({
+  output$script <- renderText({
     req(input$dg_click)
-    includeScript(path_txt())
+    # includeScript(path_txt())
+    # con <- file(path_txt())
     readLines(path_txt())
   })
   

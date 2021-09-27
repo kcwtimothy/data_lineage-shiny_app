@@ -18,6 +18,7 @@ overviewUI <- function(id) {
     box(textInput(ns("locateOutput"), "Locate Table", ""),
         grVizOutput(ns("dg")), width = 9),
     box(verbatimTextOutput(ns("node_txt")), width = 3),
+    box(verbatimTextOutput(ns("script")), width = 6)
   )
 }
 
@@ -209,7 +210,7 @@ overview <- function(input, output, session, pool,
   time_txt <- reactive({
     req(input$dg_click)
     nodeval <- input$dg_click$nodeValues[[1]]
-    time <- output_nodes_attr()[output_nodes_attr()[,3] == nodeval,6] 
+    time <- output_nodes_attr()[output_nodes_attr()[,3] == nodeval,5] 
     
     return(paste("Last modified time: ", time))
     
@@ -218,9 +219,9 @@ overview <- function(input, output, session, pool,
   path_txt <- reactive({
     req(input$dg_click)
     nodeval <- input$dg_click$nodeValues[[1]]
-    path <- output_nodes_attr()[output_nodes_attr()[,3] == nodeval,5]
+    path <- output_nodes_attr()[output_nodes_attr()[,3] == nodeval,6]
     
-    return(paste("File path: ", path))
+    return(path)
   })
   
   output$node_txt <- renderText({
@@ -228,7 +229,21 @@ overview <- function(input, output, session, pool,
     paste0("\n",
            user_txt(), "\n",
            time_txt(), "\n",
-           path_txt(), "\n")
+           "Script path: ", path_txt(), "\n")
+  })
+  
+  output$script <- renderText({
+    req(input$dg_click)
+    includeScript(path_txt())
+    if(length(path_txt()) > 1){
+      #sapply(path_txt(), readLines)
+      print("test")
+    } else {
+      for (i in 1:length(readLines(path_txt()))){
+        lines <- paste0(lines, readLines(path_txt())[i], "\n")
+      }
+      lines
+    }
   })
   
 }
