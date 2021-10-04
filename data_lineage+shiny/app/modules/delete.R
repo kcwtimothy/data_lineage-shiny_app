@@ -5,7 +5,7 @@ deleteUI <- function(id) {
     fluidPage(
       sidebarLayout(
         sidebarPanel(
-          selectInput(ns("tableName"), "Choose a table", character(0)),
+          selectInput(ns("tableName"), "Choose a lineage table", character(0)),
 
           selectInput(ns("col"), "Choose column to filter on", NULL),
           selectInput(ns("vals"), "Choose values to filter on (will remove whole row)", NULL)
@@ -24,21 +24,53 @@ deleteUI <- function(id) {
                        style = "material-flat",
                        color = "danger")
           )
+        ),
+      sidebarLayout(
+        sidebarPanel(
+          selectInput(ns("tableName_2"), "Choose a table", character(0)),
+          
+          selectInput(ns("col_2"), "Choose column to filter on", NULL),
+          selectInput(ns("vals_2"), "Choose values to filter on (will remove whole row)", NULL)
+        ),
+        mainPanel(
+          box(title = "Selected rows (to be deleted)", status = "warning", 
+              solidHeader = TRUE, width = 12,
+              style = "overflow-y:scroll; max-height: 300px; position:relative; align: centre;overflow-x:scroll; max-width: 300;",
+              tableOutput(ns("current_2")),
+              actionButton(ns("deleteRows_2"), 
+                           "Remove selected rows", class = "pull-right btn-warning",
+                           style = "material-flat",
+                           color = "danger")),
+          actionButton(ns("deleteTable_2"), "Remove whole table", 
+                       class = "pull-right btn-danger",
+                       style = "material-flat",
+                       color = "danger")
+          )
         )
       )
     )
 }
 
-delete <- function(input, output, session, pool, reqTable, reqColInTable) {
+delete <- function(input, output, session, pool, pool_2, reqTable, reqTable_2, reqColInTable, reqColInTable_2) {
   
   observeEvent(tbls(), {
     updateSelectInput(session, "tableName", choices = tbls())
+  })
+  
+  observeEvent(tbls_2(), {
+    updateSelectInput(session, "tableName_2", choices = tbls_2())
   })
   
   observe({
     reqTable(input$tableName)
     cols <- db_query_fields(pool, input$tableName)
     updateSelectInput(session, "col", choices = cols)
+  })
+  
+  observe({
+    reqTable_2(input$tableName_2)
+    cols <- db_query_fields(pool_2, input$tableName_2)
+    updateSelectInput(session, "col_2", choices = cols)
   })
   
   observe({
@@ -59,6 +91,24 @@ delete <- function(input, output, session, pool, reqTable, reqColInTable) {
     updateSelectInput(session, "vals", choices = allUniqueVals)
   })
   
+  observe({
+    reqColInTable_2(input$tableName_2, input$col_2)
+    query <- sqlInterpolate(pool_2, 
+                            "SELECT COUNT(*) FROM ?table",
+                            .dots = list(table = input$tableName_2)
+    )
+    req(dbGetQuery(pool_2, query) > 0)
+    
+    sql <- "SELECT ?col FROM ?table"
+    query <- sqlInterpolate(pool_2, sql, .dots = c(
+      list(table = input$tableName_2,
+           col = sym(input$col_2))
+    ))
+    df <- dbGetQuery(pool_2, query)
+    allUniqueVals <- unique(df[[input$col_2]])
+    updateSelectInput(session, "vals_2", choices = allUniqueVals)
+  })
+  
   output$current <- renderTable({
     reqTable(input$tableName)
     req(input$col)
@@ -74,6 +124,21 @@ delete <- function(input, output, session, pool, reqTable, reqColInTable) {
     dbGetQuery(pool, query)
   })
   
+  output$current_2 <- renderTable({
+    reqTable_2(input$tableName_2)
+    req(input$col_2)
+    req(input$vals_2)
+    
+    sql <- "SELECT * FROM ?table WHERE ?col IN (?vals)"
+    vals <- lapply(input$vals_2, function(x) dbQuoteString(pool_2, x))
+    query <- sqlInterpolate(pool_2, sql, .dots = c(
+      list(table = input$tableName_2,
+           col = sym(input$col_2),
+           vals = sym(toString(vals)))
+    ))
+    dbGetQuery(pool_2, query)
+  })
+  
   deleteTableModal <- function() {
     ns <- session$ns
     modalDialog(
@@ -83,8 +148,21 @@ delete <- function(input, output, session, pool, reqTable, reqColInTable) {
                        modalButton("No")))
   }
   
+  deleteTableModal_2 <- function() {
+    ns <- session$ns
+    modalDialog(
+      "Do you wish to proceed and delete the entire table?",
+      title = "WARNING", 
+      footer = tagList(actionButton(ns("confirm_2"), "Confirm"),
+                       modalButton("No")))
+  }
+  
   observeEvent(input$deleteTable, {
     showModal(deleteTableModal())
+  })
+  
+  observeEvent(input$deleteTable_2, {
+    showModal(deleteTableModal_2())
   })
   
   observeEvent(input$confirm, {
@@ -92,12 +170,27 @@ delete <- function(input, output, session, pool, reqTable, reqColInTable) {
     dbRemoveTable(pool, input$tableName)
   })
   
+  observeEvent(input$confirm_2, {
+    removeModal()
+    dbRemoveTable(pool_2, input$tableName_2)
+  })
+  
   deleteRowModal <- function() {
     ns <- session$ns
     modalDialog(
       "Confirm to delete this row?",
       title = "Confirmation",
-      footer = tagList(actionButton(ns("yes"), "yes"),
+      footer = tagList(actionButton(ns("yes"), "Yes"),
+                       modalButton("No"))
+    )
+  }
+  
+  deleteRowModal_2 <- function() {
+    ns <- session$ns
+    modalDialog(
+      "Confirm to delete this row?",
+      title = "Confirmation",
+      footer = tagList(actionButton(ns("yes_2"), "Yes"),
                        modalButton("No"))
     )
   }
@@ -106,39 +199,31 @@ delete <- function(input, output, session, pool, reqTable, reqColInTable) {
     showModal(deleteRowModal())
   })
   
+  observeEvent(input$deleteRows_2, {
+    showModal(deleteRowModal_2())
+  })
+  
   observeEvent(input$yes, {
     removeModal()
-    col <- if (input$col %in% dbListFields(pool, input$tableName)) {
-      input$col
-    } else {
-      showModal(modalDialog(
-        title = "Invalid column name",
-        "The selected column must be a column of the DB table",
-        easyClose = TRUE, footer = NULL
-      ))
-      return()
-    }
-    
-    df <- as_data_frame(pool %>% tbl(input$tableName) %>% select(col))
-    allUniqueVals <- unique(df[[col]])
-    results <- lapply(as_list(input$vals), `%in%`, allUniqueVals)
-    
-    vals <- if (all(results)) {
-      input$vals
-    } else {
-      showModal(modalDialog(
-        title = "Invalid column values",
-        "The selected values do not exist in the selected table column",
-        easyClose = TRUE, footer = NULL
-      ))
-      return()
-    }
-    
-    sql <- paste0("DELETE FROM ?table WHERE ", col, " IN (",
-                  paste0(vals, collapse = ", "), ");")
-    
-    query <- sqlInterpolate(pool, sql, table = input$tableName)
-    
+    sql <- "DELETE FROM ?table WHERE ?col IN (?vals)"
+    vals <- lapply(input$vals, function(x) dbQuoteString(pool, x))
+    query <- sqlInterpolate(pool, sql, .dots = c(
+      list(table = input$tableName,
+           col = sym(input$col),
+           vals = sym(toString(vals)))))
+                            
     dbExecute(pool, query)
+  })
+  
+  observeEvent(input$yes_2, {
+    removeModal()
+    sql <- "DELETE FROM ?table WHERE ?col IN (?vals)"
+    vals <- lapply(input$vals_2, function(x) dbQuoteString(pool, x))
+    query <- sqlInterpolate(pool_2, sql, .dots = c(
+      list(table = input$tableName_2,
+           col = sym(input$col_2),
+           vals = sym(toString(vals)))))
+    
+    dbExecute(pool_2, query)
   })
 }

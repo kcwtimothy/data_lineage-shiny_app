@@ -2,6 +2,7 @@
 createTableUI <- function(id) {
   ns <- NS(id)
   tagList(
+    useShinyjs(),
     box(title = "Create ordinary tables", status = "primary",
         solidHeader = TRUE, width = 8,
         textInput(ns("tableName"), "Table name"),
@@ -10,15 +11,15 @@ createTableUI <- function(id) {
         style = "overflow-y:scroll; max-height: 800px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
         uiOutput(ns("cols")),
         actionButton(ns("create"), "Create table", class = "pull-right btn-info")),
-    box(title = "Create Master tables", status = "primary",
+    box(title = "Create Data Lineage Tables", status = "primary",
         solidHeader = TRUE, width = 8,
         textInput(ns("masterName"), "Table name"),
-        actionButton(ns("create_master"), "Create Master Table",
+        actionButton(ns("create_master"), "Create Table",
                  class = "pull-right btn-info"))
   )
 }
 
-createTable <- function(input, output, session, pool, goHome) {
+createTable <- function(input, output, session, pool, pool_2) {
   
   output$cols <- renderUI({
     input$tableName
@@ -46,7 +47,7 @@ createTable <- function(input, output, session, pool, goHome) {
       return()
     }
     
-    if (input$tableName %in% c(tbls(), "")) {
+    if (input$tableName %in% c(tbls_2(), "")) {
       if (input$tableName == "") {
         msg <- "All tables must be named"
       } else {
@@ -77,8 +78,14 @@ createTable <- function(input, output, session, pool, goHome) {
       return()
     }
     
-    dbCreateTable(pool, input$tableName, finalCols)
-    goHome()
+    dbCreateTable(pool_2, input$tableName, finalCols)
+    showModal(modalDialog(
+      title = "Successfully Created", "An Object Description Table is created",
+      easyClose = TRUE, footer = NULL
+    ))
+    reset("cols")
+    reset("ncols")
+    reset("tableName")
   })
   
   observeEvent(input$create_master, {
@@ -92,6 +99,10 @@ createTable <- function(input, output, session, pool, goHome) {
                      stringsAsFactors = FALSE)
 
     dbWriteTable(pool, input$masterName, df)
-    goHome()
+    showModal(modalDialog(
+      title = "Successfully Created", "A Lineage Table is created",
+      easyClose = TRUE, footer = NULL
+    ))
+    reset("masterName")
   })
 }

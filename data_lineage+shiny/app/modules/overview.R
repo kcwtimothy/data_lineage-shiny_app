@@ -2,37 +2,54 @@
 overviewUI <- function(id) {
   ns <- NS(id)
   tagList(
-    h3("Current tables in database"),
-    uiOutput(ns("tables")),
-    
-    #Moved reading tables to Overview
-    box(title = "Table and columns", width = 5, solidHeader = TRUE, status = "primary",
-        selectInput(ns("tableName"), "Choose a table", character(0)),
-        checkboxGroupInput(ns("select"), "Choose columns to read")
-    ),
-    box(title = "Rows (optional)", width = 3, solidHeader = TRUE, status = "info",
-        selectInput(ns("filter"), "Choose column to filter on", NULL),
-        textInput(ns("vals"), "Choose values to include", "")
-    ),
-    box(tableOutput(ns("res")), width = 12),
-    box(textInput(ns("locateOutput"), "Locate Table", ""),
-        grVizOutput(ns("dg")), width = 9),
-    box(verbatimTextOutput(ns("node_txt")), width = 3),
-    box(verbatimTextOutput(ns("script")), width = 6)
-  )
+    fluidPage(
+      h3("Current tables in database"),
+      uiOutput(ns("tables")),
+      
+      #Moved reading tables to Overview
+      box(title = "Table and columns", width = 5, solidHeader = TRUE, status = "primary",
+          selectInput(ns("tableName"), "Choose a table", character(0)),
+          checkboxGroupInput(ns("select"), "Choose columns to read")
+      ),
+      box(title = "Rows (optional)", width = 3, solidHeader = TRUE, status = "info",
+          selectInput(ns("filter"), "Choose column to filter on", NULL),
+          textInput(ns("vals"), "Choose values to include", "")
+      ),
+      box(title = "Data Lineage Table", solidHeader = TRUE, status = "primary",
+          style = "overflow-y:scroll; max-height: 600px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
+          tableOutput(ns("res")), width = 12),
+      setZoom(ns("dg"), scale = 1.25),
+      box(style = "overflow-y:scroll; max-height: 1000px; position:relative; align: centre;overflow-x:scroll; max-width: 900;",
+          textInput(ns("locateOutput"), "Locate Table", ""),
+          grVizOutput(ns("dg")), width = 9),
+      box(verbatimTextOutput(ns("node_txt")), width = 3),
+      # box(verbatimTextOutput(ns("script")), width = 6),
+      box(title = "Table and columns", width = 5, solidHeader = TRUE, status = "primary",
+          selectInput(ns("tableName_2"), "Choose a table", character(0)),
+          checkboxGroupInput(ns("select_2"), "Choose columns to read")
+      ),
+      box(title = "Rows (optional)", width = 3, solidHeader = TRUE, status = "info",
+          selectInput(ns("filter_2"), "Choose column to filter on", NULL),
+          textInput(ns("vals_2"), "Choose values to include", "")
+      ),
+      box(title = "Object description", solidHeader = TRUE, status = "primary",
+          style = "overflow-y:scroll; max-height: 600px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
+          tableOutput(ns("res_2")), width = 12)
+      )
+    )
 }
 
-overview <- function(input, output, session, pool,
-                     reqTable, reqColInTable) {
+overview <- function(input, output, session, pool, pool_2,
+                     reqTable, reqColInTable, reqTable_2, reqColInTable_2) {
   output$tables <- renderUI({
-    all_tables <- tbls()
+    all_tables <- tbls_2()
     for (i in seq_len(length(all_tables))) {
       tblName <- all_tables[[i]]
-      fieldNames <- db_query_fields(pool, tblName)
-      query <- sqlInterpolate(pool, 
+      fieldNames <- db_query_fields(pool_2, tblName)
+      query <- sqlInterpolate(pool_2, 
                               "SELECT count(*) FROM sqlite_master AS tables 
                               WHERE type='table'")
-      count <- dbGetQuery(pool, query)
+      count <- dbGetQuery(pool_2, query)
       statement <- tags$li(paste0(
         "There are currently ", count, " tables in the database."))
     }
@@ -44,10 +61,28 @@ overview <- function(input, output, session, pool,
     updateSelectInput(session, "tableName", choices = tbls())
   })
   
+  observeEvent(tbls_2(), {
+    updateSelectInput(session, "tableName_2", choices = tbls_2())
+  })
+  
+  observeEvent(input$dg_click$nodeValues[[1]], {
+    nodeval <- input$dg_click$nodeValues[[1]]
+    if (nodeval %in% tbls_2()){
+      updateSelectInput(session, "tableName_2", choices = tbls_2(), selected = nodeval)
+    }
+  })
+  
   observe({
     reqTable(input$tableName)
     cols <- db_query_fields(pool, input$tableName)
     updateCheckboxGroupInput(session, "select", 
+                             choices = cols, selected = cols, inline = TRUE)
+  })
+  
+  observe({
+    reqTable_2(input$tableName_2)
+    cols <- db_query_fields(pool_2, input$tableName_2)
+    updateCheckboxGroupInput(session, "select_2", 
                              choices = cols, selected = cols, inline = TRUE)
   })
   
@@ -57,13 +92,11 @@ overview <- function(input, output, session, pool,
     updateSelectInput(session, "filter", choices = input$select)
   })
   
-  # observe({
-  #   reqColInTable(input$tableName, input$filter)
-  #   df <- as_data_frame(pool %>% tbl(input$tableName) %>% select(input$filter))
-  #   allUniqueVals <- unique(df[[input$filter]])
-  #   updateSelectInput(session, "vals", 
-  #                            choices = allUniqueVals)
-  # })
+  observe({
+    reqTable_2(input$tableName_2)
+    req(input$select_2)
+    updateSelectInput(session, "filter_2", choices = input$select_2)
+  })
   
   output$res <- renderTable({
     reqColInTable(input$tableName, input$filter)
@@ -79,6 +112,20 @@ overview <- function(input, output, session, pool,
     }
   })
   
+  output$res_2 <- renderTable({
+    reqColInTable_2(input$tableName_2, input$filter_2)
+    
+    filterVar <- sym(input$filter_2)
+    vals <- input$vals_2
+    
+    if (vals == ""){
+      pool_2 %>% tbl(input$tableName_2) %>% select(input$select_2)
+    } else {
+      pool_2 %>% tbl(input$tableName_2) %>% select(input$select_2) %>% 
+        filter(filterVar %in% vals)
+    }
+  })
+  
   dm_graph <- reactive({
     df <- as_data_frame(pool %>% tbl(input$tableName))
     input_nodes <- create_node_df(n = nrow(df), label = df$input)
@@ -89,12 +136,10 @@ overview <- function(input, output, session, pool,
     edges <- create_edge_df(from = match(df$input, nodes_name),
                               to = match(df$output, nodes_name),
                               label = df$transformation)
-    
     #remove duplicates
     unique_nodes <- unique(c(edges$from, edges$to))
     #create a graph object 
     diagram <- create_graph(all_nodes[unique_nodes,], edges)
-    
   })
   
   dm_graph_scope <- reactive({
@@ -232,18 +277,17 @@ overview <- function(input, output, session, pool,
            "Script path: ", path_txt(), "\n")
   })
   
-  output$script <- renderText({
-    req(input$dg_click)
-    includeScript(path_txt())
-    if(length(path_txt()) > 1){
-      #sapply(path_txt(), readLines)
-      print("test")
-    } else {
-      for (i in 1:length(readLines(path_txt()))){
-        lines <- paste0(lines, readLines(path_txt())[i], "\n")
-      }
-      lines
-    }
-  })
-  
+  # output$script <- renderText({
+  #   req(input$dg_click)
+  #   includeScript(path_txt())
+  #   if(length(path_txt()) > 1){
+  #     #sapply(path_txt(), readLines)
+  #     print("test")
+  #   } else {
+  #     for (i in 1:length(readLines(path_txt()))){
+  #       lines <- paste0(lines, readLines(path_txt())[i], "\n")
+  #     }
+  #     lines
+  #   }
+  # })
 }

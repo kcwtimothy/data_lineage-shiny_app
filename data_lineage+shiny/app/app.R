@@ -1,4 +1,6 @@
 library(shiny)
+library(shinyjs)
+library(shinyEffects)
 library(shinydashboard)
 library(dplyr)
 library(dbplyr)
@@ -14,17 +16,21 @@ source("modules/createTable.R", local = TRUE)
 source("modules/createEntry.R", local = TRUE)
 source("modules/update.R", local = TRUE)
 source("modules/delete.R", local = TRUE)
-source("modules/editRelation.R", local = TRUE)
 
 pool <- dbPool(RSQLite::SQLite(), dbname = "db.sqlite")
-#conn <- DBI::dbConnect(RSQLite::SQLite(), dbname = "db.sqlite")
+pool_2 <- dbPool(RSQLite::SQLite(), dbname = "db2.sqlite")
 
 tbls <- reactiveFileReader(500, NULL, "db.sqlite",
                            function(x) dbListTables(pool)
                            )
-
+tbls_2 <- reactiveFileReader(500, NULL, "db2.sqlite",
+                             function(x) dbListTables(pool_2)
+                             )
 onStop(function(){
   poolClose(pool)
+})
+onStop(function(){
+  poolClose(pool_2)
 })
 
 ui <- dashboardPage(
@@ -36,7 +42,6 @@ ui <- dashboardPage(
       menuItem("Create entry", tabName = "createEntry"),
       menuItem("Update entry", tabName = "update"),
       menuItem("Delete", tabName = "delete")
-      #menuItem("Edit Relation", tabName = "editRelation")
     )
   ),
   dashboardBody(
@@ -46,14 +51,11 @@ ui <- dashboardPage(
       tabItem("createEntry", createEntryUI("createEntry-module")),
       tabItem("update", updateUI("update-module")),
       tabItem("delete", deleteUI("delete-module"))
-      #tabItem("editRelation", editRelationUI("editRelation-module"))
     )
   )
 )
 
 server <- function(input, output, session) {
-  goHome <- function() updateTabItems(session, "tabs", "overview")
-  
   reqTable <- function(tableName) {
     tbls()
     req(tableName)
@@ -66,12 +68,23 @@ server <- function(input, output, session) {
     req(colName %in% dbListFields(pool, tableName))
   }
   
-  callModule(overview, "overview-module", pool, reqTable, reqColInTable)
-  callModule(createTable, "createTable-module", pool, goHome)
-  callModule(createEntry, "createEntry-module", pool, reqTable, goHome)
-  callModule(update, "update-module", pool, reqTable, reqColInTable)
-  callModule(delete, "delete-module", pool, reqTable, reqColInTable)
-  #callModule(editRelation, "editRelation-module", pool, conn)
+  reqTable_2 <- function(tableName) {
+    tbls_2()
+    req(tableName)
+    req(tableName %in% dbListTables(pool_2))
+  }
+  
+  reqColInTable_2 <- function(tableName, colName) {
+    reqTable_2(tableName)
+    req(colName)
+    req(colName %in% dbListFields(pool_2, tableName))
+  }
+  
+  callModule(overview, "overview-module", pool, pool_2, reqTable, reqColInTable, reqTable_2, reqColInTable_2)
+  callModule(createTable, "createTable-module", pool, pool_2)
+  callModule(createEntry, "createEntry-module", pool, pool_2, reqTable, reqColInTable_2)
+  callModule(update, "update-module", pool, pool_2, reqTable, reqTable_2, reqColInTable, reqColInTable_2)
+  callModule(delete, "delete-module", pool, pool_2, reqTable, reqTable_2, reqColInTable, reqColInTable_2)
 }
 
 shinyApp(ui, server)
