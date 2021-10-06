@@ -2,36 +2,40 @@
 createEntryUI <- function(id, tables) {
   ns <- NS(id)
   tagList(
-    useShinyjs(),
-    selectInput(ns("tableName"), "Choose a Lineage table", character(0)),
-    box(title = "Current entry", status = "primary", 
-        solidHeader = TRUE, width = 12,
-        style = "overflow-y:scroll; max-height: 300px; position:relative; align: centre;overflow-x:scroll; max-width: 300;",
-        tableOutput(ns("current"))),
-    box(width = 12,
-       style = "overflow-y:scroll; max-height: 800px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
-       uiOutput(ns("fields")),
-       actionButton(ns("create"), "Create entry", class = "pull-right btn-info")),
-    selectInput(ns("tableName_2"), "Choose a table", character(0)),
-    box(title = "Current entry", status = "primary", 
-        solidHeader = TRUE, width = 12,
-        style = "overflow-y:scroll; max-height: 300px; position:relative; align: centre;overflow-x:scroll; max-width: 300;",
-        tableOutput(ns("current_2"))),
-    box(width = 12,
-        style = "overflow-y:scroll; max-height: 800px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
-        uiOutput(ns("fields_2")),
-        actionButton(ns("create_2"), "Create entry", class = "pull-right btn-info"))
+    fluidPage(
+      useShinyjs(),
+      selectInput(ns("tableName"), "Choose a Lineage table", character(0)),
+      box(title = "Current entry", status = "primary", 
+          solidHeader = TRUE, width = 12,
+          style = "overflow-y:scroll; max-height: 300px; position:relative; align: centre;overflow-x:scroll; max-width: 300;",
+          tableOutput(ns("current"))),
+      box(width = 12,
+          style = "overflow-y:scroll; max-height: 800px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
+          uiOutput(ns("fields")),
+          actionButton(ns("create"), "Create entry", class = "pull-right btn-info")),
+      selectInput(ns("tableName_2"), "Choose a table", character(0)),
+      box(title = "Current entry", status = "primary", 
+          solidHeader = TRUE, width = 12,
+          style = "overflow-y:scroll; max-height: 300px; position:relative; align: centre;overflow-x:scroll; max-width: 300;",
+          tableOutput(ns("current_2"))),
+      box(width = 12,
+          style = "overflow-y:scroll; max-height: 800px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
+          uiOutput(ns("fields_2")),
+          actionButton(ns("create_2"), "Create entry", class = "pull-right btn-info"))
+    )
   )
 }
 
 createEntry <- function(input, output, session, pool, pool_2, reqTable, reqTable_2) {
   
   observeEvent(tbls(), {
-    updateSelectInput(session, "tableName", choices = tbls())
+    selected <- input$tableName
+    updateSelectInput(session, "tableName", choices = tbls(), selected = selected)
   })
   
   observeEvent(tbls_2(), {
-    updateSelectInput(session, "tableName_2", choices = tbls_2())
+    selected <- input$tableName_2
+    updateSelectInput(session, "tableName_2", choices = tbls_2(), selected = selected)
   })
   
   cur_tbl_update <- eventReactive(input$create, {

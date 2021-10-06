@@ -17,14 +17,17 @@ overviewUI <- function(id) {
       ),
       box(title = "Data Lineage Table", solidHeader = TRUE, status = "primary",
           style = "overflow-y:scroll; max-height: 600px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
-          tableOutput(ns("res")), width = 12),
+          tableOutput(ns("res")), width = 6),
+      box(title = "Metadata", solidHeader = TRUE, status = "primary",
+          style = "overflow-y:scroll; max-height: 600px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
+          tableOutput(ns("meta")), width = 6),
       setZoom(ns("dg"), scale = 1.25),
       box(style = "overflow-y:scroll; max-height: 1000px; position:relative; align: centre;overflow-x:scroll; max-width: 900;",
           textInput(ns("locateOutput"), "Locate Table", ""),
           grVizOutput(ns("dg")), width = 9),
       box(verbatimTextOutput(ns("node_txt")), width = 3),
       # box(verbatimTextOutput(ns("script")), width = 6),
-      box(title = "Table and columns", width = 5, solidHeader = TRUE, status = "primary",
+      box(title = "Object Overview", width = 5, solidHeader = TRUE, status = "primary",
           selectInput(ns("tableName_2"), "Choose a table", character(0)),
           checkboxGroupInput(ns("select_2"), "Choose columns to read")
       ),
@@ -112,6 +115,10 @@ overview <- function(input, output, session, pool, pool_2,
     }
   })
   
+  output$meta <- renderTable({
+    pool_2 %>% tbl("metadata") 
+  })
+  
   output$res_2 <- renderTable({
     reqColInTable_2(input$tableName_2, input$filter_2)
     
@@ -146,12 +153,15 @@ overview <- function(input, output, session, pool, pool_2,
     df <- as_data_frame(pool %>% tbl(input$tableName))
     t1 <- data.frame()
     for (i in 1:nrow(df)){
-      if(df$output[i] == input$locateOutput){
+      if (df$output[i] == input$locateOutput){
         t1 <- bind_rows(t1, df[i, ])
-      } 
+        }
     }
-    t1 #t1 is the anchor table with target output
-
+    if (dim(t1)[1] == 0){
+      stop("No output objects found.")
+    } else {
+      t1 #t1 is the anchor table with target output
+    }
     for (i in 1:nrow(df)){
       sub_t <- get(paste0("t", i))
       vector <- sub_t[,2] #create a vector of input
@@ -226,11 +236,10 @@ overview <- function(input, output, session, pool, pool_2,
   })
   
   output_nodes_attr <- reactive({
-    df <- as_data_frame(pool %>% tbl(input$tableName))
-    create_node_df(nrow(df), label = df$output, 
-                                      value = df$created_by,
-                                      time = df$last_modified,
-                                      path = df$script_path)
+    df <- as_data_frame(pool_2 %>% tbl("metadata"))
+    create_node_df(nrow(df), label = df$object_name,
+                   value = df$object_summary,
+                   path = df$script_path)
   })
     
   
@@ -243,28 +252,19 @@ overview <- function(input, output, session, pool, pool_2,
    })
   
   
-  user_txt <- reactive({
+  summary_txt <- reactive({
     req(input$dg_click)
     nodeval <- input$dg_click$nodeValues[[1]]
-    user <- output_nodes_attr()[output_nodes_attr()[,3] == nodeval,4]
+    sum <- output_nodes_attr()[output_nodes_attr()[,3] == nodeval,4]
     
-    return(paste("Created by: ", user))
-    
-  })
-  
-  time_txt <- reactive({
-    req(input$dg_click)
-    nodeval <- input$dg_click$nodeValues[[1]]
-    time <- output_nodes_attr()[output_nodes_attr()[,3] == nodeval,5] 
-    
-    return(paste("Last modified time: ", time))
+    return(paste("Brief Summary: ", sum))
     
   })
   
   path_txt <- reactive({
     req(input$dg_click)
     nodeval <- input$dg_click$nodeValues[[1]]
-    path <- output_nodes_attr()[output_nodes_attr()[,3] == nodeval,6]
+    path <- output_nodes_attr()[output_nodes_attr()[,3] == nodeval,5]
     
     return(path)
   })
@@ -272,22 +272,7 @@ overview <- function(input, output, session, pool, pool_2,
   output$node_txt <- renderText({
     req(input$dg_click)
     paste0("\n",
-           user_txt(), "\n",
-           time_txt(), "\n",
+           summary_txt(), "\n",
            "Script path: ", path_txt(), "\n")
   })
-  
-  # output$script <- renderText({
-  #   req(input$dg_click)
-  #   includeScript(path_txt())
-  #   if(length(path_txt()) > 1){
-  #     #sapply(path_txt(), readLines)
-  #     print("test")
-  #   } else {
-  #     for (i in 1:length(readLines(path_txt()))){
-  #       lines <- paste0(lines, readLines(path_txt())[i], "\n")
-  #     }
-  #     lines
-  #   }
-  # })
 }

@@ -10,7 +10,8 @@ createTableUI <- function(id) {
     box(width = 12,
         style = "overflow-y:scroll; max-height: 800px; position:relative; align: centre;overflow-x:scroll; max-width: 1200;",
         uiOutput(ns("cols")),
-        actionButton(ns("create"), "Create table", class = "pull-right btn-info")),
+        actionButton(ns("create"), "Create table", class = "pull-right btn-info"),
+        actionButton(ns("create_multiple"), "Create Without reset", class = "pull-right btn-info")),
     box(title = "Create Data Lineage Tables", status = "primary",
         solidHeader = TRUE, width = 8,
         textInput(ns("masterName"), "Table name"),
@@ -22,7 +23,6 @@ createTableUI <- function(id) {
 createTable <- function(input, output, session, pool, pool_2) {
   
   output$cols <- renderUI({
-    input$tableName
     cols <- vector("list", input$ncols)
     for (i in seq_len(input$ncols)) {
       cols[[i]] <- box(
@@ -88,14 +88,60 @@ createTable <- function(input, output, session, pool, pool_2) {
     reset("tableName")
   })
   
+  observeEvent(input$create_multiple, {
+    if (input$ncols < 1) {
+      showModal(modalDialog(
+        title = "No columns", 
+        "Each table must have one or more columns",
+        easyClose = TRUE, footer = NULL
+      ))
+      return()
+    }
+    
+    if (input$tableName %in% c(tbls_2(), "")) {
+      if (input$tableName == "") {
+        msg <- "All tables must be named"
+      } else {
+        msg <- "There's already a table with this name in the DB"
+      }
+      showModal(modalDialog(
+        title = "Invalid table name", msg,
+        easyClose = TRUE, footer = NULL
+      ))
+      return()
+    }
+    
+    finalCols <- character(0)
+    for (i in seq_len(input$ncols)) {
+      colNameID <- paste0("colName", i)
+      colTypeID <- paste0("colType", i)
+      colName <- input[[colNameID]]
+      colType <- input[[colTypeID]]
+      finalCols[colName] <- colType
+    }
+    
+    if (any(names(finalCols) == "")) {
+      showModal(modalDialog(
+        title = "Invalid column name",
+        "All columns must be named",
+        easyClose = TRUE, footer = NULL
+      ))
+      return()
+    }
+    
+    dbCreateTable(pool_2, input$tableName, finalCols)
+    showModal(modalDialog(
+      title = "Successfully Created", "An Object Description Table is created",
+      easyClose = TRUE, footer = NULL
+    ))
+    reset("tableName")
+  })
+  
   observeEvent(input$create_master, {
     df <- data.frame(id = character(),
                      input = character(),
                      transformation = character(),
                      output = character(),
-                     created_by = character(),
-                     script_path = character(),
-                     last_modified = character(),
                      stringsAsFactors = FALSE)
 
     dbWriteTable(pool, input$masterName, df)
