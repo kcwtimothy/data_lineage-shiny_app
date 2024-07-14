@@ -56,35 +56,71 @@ ui <- dashboardPage(
 )
 
 server <- function(input, output, session) {
+  # reqTable <- function(tableName) {
+  #   tbls()
+  #   req(tableName)
+  #   req(tableName %in% dbListTables(pool))
+  # }
+  # 
+  # reqColInTable <- function(tableName, colName) {
+  #   reqTable(tableName)
+  #   req(colName)
+  #   req(colName %in% dbListFields(pool, tableName))
+  # }
+  
+  get_table_fields <- function(pool, table_name) {
+    con <- pool::poolCheckout(pool)
+    on.exit(pool::poolReturn(con))
+    
+    fields <- DBI::dbListFields(con, table_name)
+    return(fields)
+  }
+  
   reqTable <- function(tableName) {
     tbls()
     req(tableName)
-    req(tableName %in% dbListTables(pool))
+    req(tableName %in% pool::dbListTables(pool))
   }
   
   reqColInTable <- function(tableName, colName) {
     reqTable(tableName)
     req(colName)
-    req(colName %in% dbListFields(pool, tableName))
+    req(colName %in% get_table_fields(pool, tableName))
   }
+  
+  
+  
+  # reqTable_2 <- function(tableName) {
+  #   tbls_2()
+  #   req(tableName)
+  #   req(tableName %in% dbListTables(pool_2))
+  # }
+  # 
+  # reqColInTable_2 <- function(tableName, colName) {
+  #   reqTable_2(tableName)
+  #   req(colName)
+  #   req(colName %in% dbListFields(pool_2, tableName))
+  # }
   
   reqTable_2 <- function(tableName) {
     tbls_2()
     req(tableName)
-    req(tableName %in% dbListTables(pool_2))
+    req(tableName %in% pool::dbListTables(pool_2))
   }
   
   reqColInTable_2 <- function(tableName, colName) {
     reqTable_2(tableName)
     req(colName)
-    req(colName %in% dbListFields(pool_2, tableName))
+    req(colName %in% get_table_fields(pool_2, tableName))
   }
   
-  callModule(overview, "overview-module", pool, pool_2, reqTable, reqColInTable, reqTable_2, reqColInTable_2)
-  callModule(createTable, "createTable-module", pool, pool_2)
+  # Do the same for reqTable_2 and reqColInTable_2
+  
+  callModule(overview, "overview-module", pool, pool_2, reqTable, reqColInTable, reqTable_2, reqColInTable_2, get_table_fields)
+  callModule(createTable, "createTable-module", pool, pool_2, get_table_fields)
   callModule(createEntry, "createEntry-module", pool, pool_2, reqTable, reqColInTable_2)
   callModule(update, "update-module", pool, pool_2, reqTable, reqTable_2, reqColInTable, reqColInTable_2)
-  callModule(delete, "delete-module", pool, pool_2, reqTable, reqTable_2, reqColInTable, reqColInTable_2)
+  callModule(delete, "delete-module", pool, pool_2, reqTable, reqTable_2, reqColInTable, reqColInTable_2, get_table_fields)
 }
 
 shinyApp(ui, server)

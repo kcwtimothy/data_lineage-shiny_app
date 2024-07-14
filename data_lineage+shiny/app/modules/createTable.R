@@ -1,3 +1,10 @@
+get_table_fields <- function(pool, table_name) {
+  con <- pool::poolCheckout(pool)
+  on.exit(pool::poolReturn(con))
+  
+  fields <- DBI::dbListFields(con, table_name)
+  return(fields)
+}
 
 createTableUI <- function(id) {
   ns <- NS(id)
@@ -20,7 +27,7 @@ createTableUI <- function(id) {
   )
 }
 
-createTable <- function(input, output, session, pool, pool_2) {
+createTable <- function(input, output, session, pool, pool_2, get_table_fields) {
   
   output$cols <- renderUI({
     cols <- vector("list", input$ncols)
@@ -78,14 +85,22 @@ createTable <- function(input, output, session, pool, pool_2) {
       return()
     }
     
-    dbCreateTable(pool_2, input$tableName, finalCols)
-    showModal(modalDialog(
-      title = "Successfully Created", "An Object Description Table is created",
-      easyClose = TRUE, footer = NULL
-    ))
-    reset("cols")
-    reset("ncols")
-    reset("tableName")
+    tryCatch({
+      dbCreateTable(pool_2, input$tableName, finalCols)
+      showModal(modalDialog(
+        title = "Successfully Created", "An Object Description Table is created",
+        easyClose = TRUE, footer = NULL
+      ))
+      reset("cols")
+      reset("ncols")
+      reset("tableName")
+    }, error = function(e) {
+      showModal(modalDialog(
+        title = "Error",
+        paste("Failed to create table:", e$message),
+        easyClose = TRUE, footer = NULL
+      ))
+    })
   })
   
   observeEvent(input$create_multiple, {
@@ -98,7 +113,7 @@ createTable <- function(input, output, session, pool, pool_2) {
       return()
     }
     
-    if (input$tableName %in% c(tbls_2(), "")) {
+    if (input$tableName %in% c(pool::dbListTables(pool_2), "")) {
       if (input$tableName == "") {
         msg <- "All tables must be named"
       } else {
@@ -129,26 +144,42 @@ createTable <- function(input, output, session, pool, pool_2) {
       return()
     }
     
-    dbCreateTable(pool_2, input$tableName, finalCols)
-    showModal(modalDialog(
-      title = "Successfully Created", "An Object Description Table is created",
-      easyClose = TRUE, footer = NULL
-    ))
-    reset("tableName")
+    tryCatch({
+      dbCreateTable(pool_2, input$tableName, finalCols)
+      showModal(modalDialog(
+        title = "Successfully Created", "An Object Description Table is created",
+        easyClose = TRUE, footer = NULL
+      ))
+      reset("tableName")
+    }, error = function(e) {
+      showModal(modalDialog(
+        title = "Error",
+        paste("Failed to create table:", e$message),
+        easyClose = TRUE, footer = NULL
+      ))
+    })
   })
   
   observeEvent(input$create_master, {
-    df <- data.frame(id = character(),
-                     input = character(),
-                     transformation = character(),
-                     output = character(),
-                     stringsAsFactors = FALSE)
-
-    dbWriteTable(pool, input$masterName, df)
-    showModal(modalDialog(
-      title = "Successfully Created", "A Lineage Table is created",
-      easyClose = TRUE, footer = NULL
-    ))
-    reset("masterName")
+    tryCatch({
+      df <- data.frame(id = character(),
+                       input = character(),
+                       transformation = character(),
+                       output = character(),
+                       stringsAsFactors = FALSE)
+      
+      dbWriteTable(pool, input$masterName, df)
+      showModal(modalDialog(
+        title = "Successfully Created", "A Lineage Table is created",
+        easyClose = TRUE, footer = NULL
+      ))
+      reset("masterName")
+    }, error = function(e) {
+      showModal(modalDialog(
+        title = "Error",
+        paste("Failed to create master table:", e$message),
+        easyClose = TRUE, footer = NULL
+      ))
+    })
   })
 }

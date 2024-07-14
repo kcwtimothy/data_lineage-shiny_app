@@ -1,3 +1,10 @@
+get_table_fields <- function(pool, table_name) {
+  con <- pool::poolCheckout(pool)
+  on.exit(pool::poolReturn(con))
+  
+  fields <- DBI::dbListFields(con, table_name)
+  return(fields)
+}
 
 overviewUI <- function(id) {
   ns <- NS(id)
@@ -43,12 +50,12 @@ overviewUI <- function(id) {
 }
 
 overview <- function(input, output, session, pool, pool_2,
-                     reqTable, reqColInTable, reqTable_2, reqColInTable_2) {
+                     reqTable, reqColInTable, reqTable_2, reqColInTable_2, get_table_fields) {
   output$tables <- renderUI({
     all_tables <- tbls_2()
     for (i in seq_len(length(all_tables))) {
       tblName <- all_tables[[i]]
-      fieldNames <- db_query_fields(pool_2, tblName)
+      fieldNames <- get_table_fields(pool_2, tblName)
       query <- sqlInterpolate(pool_2, 
                               "SELECT count(*) FROM sqlite_master AS tables 
                               WHERE type='table'")
@@ -77,14 +84,14 @@ overview <- function(input, output, session, pool, pool_2,
   
   observe({
     reqTable(input$tableName)
-    cols <- db_query_fields(pool, input$tableName)
+    cols <- get_table_fields(pool, input$tableName)
     updateCheckboxGroupInput(session, "select", 
                              choices = cols, selected = cols, inline = TRUE)
   })
   
   observe({
     reqTable_2(input$tableName_2)
-    cols <- db_query_fields(pool_2, input$tableName_2)
+    cols <- get_table_fields(pool_2, input$tableName_2)
     updateCheckboxGroupInput(session, "select_2", 
                              choices = cols, selected = cols, inline = TRUE)
   })
@@ -134,7 +141,7 @@ overview <- function(input, output, session, pool, pool_2,
   })
   
   dm_graph <- reactive({
-    df <- as_data_frame(pool %>% tbl(input$tableName))
+    df <- dplyr::as_tibble(pool %>% tbl(input$tableName))
     input_nodes <- create_node_df(n = nrow(df), label = df$input)
     output_nodes <- create_node_df(n = nrow(df), label = df$output)
     all_nodes <- combine_ndfs(input_nodes, output_nodes)
@@ -150,7 +157,7 @@ overview <- function(input, output, session, pool, pool_2,
   })
   
   dm_graph_scope <- reactive({
-    df <- as_data_frame(pool %>% tbl(input$tableName))
+    df <- dplyr::as_tibble(pool %>% tbl(input$tableName))
     t1 <- data.frame()
     for (i in 1:nrow(df)){
       if (df$output[i] == input$locateOutput){
@@ -201,7 +208,7 @@ overview <- function(input, output, session, pool, pool_2,
   })
   
   output$scope <- renderTable({
-    df <- as_data_frame(pool %>% tbl(input$tableName))
+    df <- dplyr::as_tibble(pool %>% tbl(input$tableName))
     t1 <- data.frame()
     for (i in 1:nrow(df)){
       if(df$output[i] == input$locateOutput){
@@ -236,7 +243,7 @@ overview <- function(input, output, session, pool, pool_2,
   })
   
   output_nodes_attr <- reactive({
-    df <- as_data_frame(pool_2 %>% tbl("metadata"))
+    df <- dplyr::as_tibble(pool_2 %>% tbl("metadata"))
     create_node_df(nrow(df), label = df$object_name,
                    value = df$object_summary,
                    path = df$script_path)

@@ -1,3 +1,10 @@
+get_table_fields <- function(pool, table_name) {
+  con <- pool::poolCheckout(pool)
+  on.exit(pool::poolReturn(con))
+  
+  fields <- DBI::dbListFields(con, table_name)
+  return(fields)
+}
 
 deleteUI <- function(id) {
   ns <- NS(id)
@@ -51,25 +58,25 @@ deleteUI <- function(id) {
     )
 }
 
-delete <- function(input, output, session, pool, pool_2, reqTable, reqTable_2, reqColInTable, reqColInTable_2) {
+delete <- function(input, output, session, pool, pool_2, reqTable, reqTable_2, reqColInTable, reqColInTable_2, get_table_fields) {
   
-  observeEvent(tbls(), {
-    updateSelectInput(session, "tableName", choices = tbls())
+  observeEvent(pool::dbListTables(pool), {
+    updateSelectInput(session, "tableName", choices = pool::dbListTables(pool))
   })
   
-  observeEvent(tbls_2(), {
-    updateSelectInput(session, "tableName_2", choices = tbls_2())
+  observeEvent(pool::dbListTables(pool_2), {
+    updateSelectInput(session, "tableName_2", choices = pool::dbListTables(pool_2))
   })
   
   observe({
     reqTable(input$tableName)
-    cols <- db_query_fields(pool, input$tableName)
+    cols <- get_table_fields(pool, input$tableName)
     updateSelectInput(session, "col", choices = cols)
   })
   
   observe({
     reqTable_2(input$tableName_2)
-    cols <- db_query_fields(pool_2, input$tableName_2)
+    cols <- get_table_fields(pool_2, input$tableName_2)
     updateSelectInput(session, "col_2", choices = cols)
   })
   
